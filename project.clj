@@ -14,6 +14,7 @@
                  [clj-time "0.6.0"]
                  [org.clojure/data.zip "0.1.1"]]
   :profiles {:dev {:source-paths ["dev" "test"]
+                   :main demo-sp
                    :dependencies [[org.clojure/tools.namespace "0.2.4"]
                                   [org.clojure/tools.nrepl "0.2.3"]
                                   [compojure "1.1.6"]
