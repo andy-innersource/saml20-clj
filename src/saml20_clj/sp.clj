@@ -50,21 +50,21 @@
                              :entityID  app-name}
        [:md:SPSSODescriptor {:AuthnRequestsSigned "true",
                              :WantAssertionsSigned "true",
-                             :protocolSupportEnumeration "urn:oasis:names:tc:SAML:2.0:protocol"} 
-        [:md:KeyDescriptor  {:use  "signing"} 
-         [:ds:KeyInfo  {:xmlns:ds  "http://www.w3.org/2000/09/xmldsig#"} 
-          [:ds:X509Data 
+                             :protocolSupportEnumeration "urn:oasis:names:tc:SAML:2.0:protocol"}
+        [:md:KeyDescriptor  {:use  "signing"}
+         [:ds:KeyInfo  {:xmlns:ds  "http://www.w3.org/2000/09/xmldsig#"}
+          [:ds:X509Data
            [:ds:X509Certificate certificate-str]]]]
-        [:md:KeyDescriptor  {:use  "encryption"} 
-         [:ds:KeyInfo  {:xmlns:ds  "http://www.w3.org/2000/09/xmldsig#"} 
-          [:ds:X509Data 
+        [:md:KeyDescriptor  {:use  "encryption"}
+         [:ds:KeyInfo  {:xmlns:ds  "http://www.w3.org/2000/09/xmldsig#"}
+          [:ds:X509Data
            [:ds:X509Certificate certificate-str]]]]
-        [:md:SingleLogoutService  {:Binding  "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", :Location  "https://example.org/saml/SingleLogout"}] 
-        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"] 
-        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:2.0:nameid-format:transient"] 
-        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"] 
-        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"] 
-        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName"] 
+        [:md:SingleLogoutService  {:Binding  "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", :Location  "https://example.org/saml/SingleLogout"}]
+        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"]
+        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:2.0:nameid-format:transient"]
+        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"]
+        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"]
+        [:md:NameIDFormat  "urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName"]
         [:md:AssertionConsumerService  {:Binding  "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", :Location acs-uri, :index  "0", :isDefault  "true"}]]])))
 
 (defn create-request
@@ -195,7 +195,7 @@
             transforms (doto (new Transforms xmldoc)
                          (.addTransform Transforms/TRANSFORM_ENVELOPED_SIGNATURE)
                          (.addTransform Transforms/TRANSFORM_C14N_EXCL_OMIT_COMMENTS))
-            sig (new org.apache.xml.security.signature.XMLSignature xmldoc nil sig-algo 
+            sig (new org.apache.xml.security.signature.XMLSignature xmldoc nil sig-algo
                      Canonicalizer/ALGO_ID_C14N_EXCL_OMIT_COMMENTS)
             canonicalizer (Canonicalizer/getInstance Canonicalizer/ALGO_ID_C14N_EXCL_OMIT_COMMENTS)]
         (.. xmldoc
@@ -212,7 +212,7 @@
   (org.opensaml.DefaultBootstrap/bootstrap)
   (let [ks (shared/load-key-store keystore-filename keystore-password)
         private-key (.getKey ks key-alias (.toCharArray keystore-password))
-        decryption-cred (doto (new org.opensaml.xml.security.x509.BasicX509Credential) 
+        decryption-cred (doto (new org.opensaml.xml.security.x509.BasicX509Credential)
                           (.setPrivateKey private-key))
         decrypter (new org.opensaml.saml2.encryption.Decrypter
                        nil
@@ -264,7 +264,7 @@
   (let [status (.. saml-resp getStatus getStatusCode getValue)]
     {:inResponseTo (.getInResponseTo saml-resp)
      :status status
-     :success? (= status org.opensaml.saml2.core.StatusCode/SUCCESS_URI) 
+     :success? (= status org.opensaml.saml2.core.StatusCode/SUCCESS_URI)
      :version (.. saml-resp getVersion toString)
      :issueInstant (.getIssueInstant saml-resp)
      :destination (.getDestination saml-resp)}))

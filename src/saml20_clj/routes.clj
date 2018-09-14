@@ -26,13 +26,13 @@
 (defn saml-routes
  "The SP routes. They can be combined with application specific routes. Also it is assumed that
   they are wrapped with compojure.handler/site or wrap-params and wrap-session.
-  
+
   The single argument is a map containing the following fields:
-  
+
   :app-name - The application's name
   :base-uri - The Base URI for the application i.e. its remotely accessible hostname and
               (if needed) port, e.g. https://example.org:8443 This is used for building the
-              'AssertionConsumerService' URI for the HTTP-POST Binding, by prepending the 
+              'AssertionConsumerService' URI for the HTTP-POST Binding, by prepending the
               base-uri to the '/saml' string.
   :idp-uri  - The URI for the IdP to use. This should be the URI for the HTTP-Redirect SAML Binding
   :idp-cert - The IdP certificate that contains the public key used by IdP for signing responses.
@@ -41,16 +41,16 @@
                    decryption of responses coming from IdP
   :keystore-password - The password for opening the keystore file
   :key-alias - The alias for the private key in the keystore
-  
+
   The created routes are the following:
 
   - GET /saml/meta : This returns a SAML metadata XML file that has the needed information
                      for registering this SP. For example, it has the public key for this SP.
 
   - GET /saml : it redirects to the IdP with the SAML request envcoded in the URI per the
-                HTTP-Redirect binding. This route accepts a 'continue' parameter that can 
+                HTTP-Redirect binding. This route accepts a 'continue' parameter that can
                 have the relative URI, where the browser should be redirected to after the
-                successful login in the IdP. 
+                successful login in the IdP.
 
   - POST /saml : this is the endpoint for accepting the responses from the IdP. It then redirects
                  the browser to the 'continue-url' that is found in the RelayState paramete, or the '/' root
@@ -103,4 +103,3 @@
                  :body ""}
                 {:status 500
                  :body "The SAML response from IdP does not validate!"}))))))
-
