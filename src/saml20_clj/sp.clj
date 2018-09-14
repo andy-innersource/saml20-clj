@@ -6,7 +6,9 @@
             [hiccup.core :as hiccup]
             [saml20-clj.shared :as shared]
             [saml20-clj.xml :as saml-xml]
-            [clojure.data.zip.xml :as zf])
+            [clojure.data.zip.xml :as zf]
+            [clojure.data.codec.base64 :as b64]
+            [ring.util.codec])
   (:import [javax.xml.crypto]
            [javax.xml.crypto.dsig XMLSignature XMLSignatureFactory]
            [javax.xml.crypto.dom]
@@ -18,8 +20,10 @@
            [java.security]
            [javax.xml.parsers DocumentBuilderFactory]
            [org.w3c.dom Document]
-           [org.w3c.dom NodeList])
+           [org.w3c.dom NodeList]
+           [java.security Signature])
   (:gen-class))
+
 
 ;;; These next 3 fns are defaults for storing SAML state in memory.
 (defn bump-saml-id-timeout!
@@ -86,8 +90,7 @@
        [:saml:Issuer
         {:xmlns:saml "urn:oasis:names:tc:SAML:2.0:assertion"}
         saml-service-name]
-       ;;[:samlp:NameIDPolicy {:AllowCreate false :Format saml-format}]
-       
+       [:samlp:NameIDPolicy {:xmlns:samlp "urn:oasis:names:tc:SAML:2.0:protocol" :AllowCreate "true" :Format saml-format}]
        ])))
 
 (defn generate-mutables
@@ -96,38 +99,40 @@
    :saml-last-id (atom 0)
    :secret-key-spec (shared/new-secret-key-spec)})
 
-(defn create-request-factory
+(declare get-idp-redirect1)
+(defn create-request-factory1
   "Creates new requests for a particular service, format, and acs-url."
   ([mutables idp-uri saml-format saml-service-name acs-url]
-   (create-request-factory
+   (create-request-factory1
      #(str "_" (next-saml-id! (:saml-last-id mutables)))
      (partial bump-saml-id-timeout! (:saml-id-timeouts mutables))
      (:xml-signer mutables)
      idp-uri saml-format saml-service-name acs-url))
   ([next-saml-id-fn! bump-saml-id-timeout-fn! xml-signer idp-uri saml-format saml-service-name acs-url]
-   (fn request-factory []
+   [get-idp-redirect1
+    (fn request-factory [relay-state]
      (let [current-time (ctime/now)
            new-saml-id (next-saml-id-fn!)
            issue-instant (shared/make-issue-instant current-time)]
        (bump-saml-id-timeout-fn! new-saml-id current-time)
-       (doto (xml-signer (create-request issue-instant 
-                                         saml-format
-                                         saml-service-name
-                                         new-saml-id
-                                         acs-url
-                                         idp-uri))
-         ;;println
-         )))))
+       (doto (xml-signer (create-request issue-instant
+                                        saml-format
+                                        saml-service-name
+                                        new-saml-id
+                                        acs-url
+                                        idp-uri))
+         )))
+    ]))
 
-(defn get-idp-redirect
+(defn get-idp-redirect1
   "Return Ring response for HTTP 302 redirect."
   [idp-url saml-request relay-state]
   (redirect
-    (str idp-url
-         "?"
-         (let [saml-request (shared/str->deflate->base64 saml-request)]
-           (shared/uri-query-str
-             {:SAMLRequest saml-request :RelayState relay-state})))))
+   (str idp-url
+        "?"
+        (let [saml-request (shared/str->deflate->base64 saml-request)]
+          (shared/uri-query-str
+           {:SAMLRequest saml-request :RelayState relay-state})))))
 
 (defn pull-attrs
   [loc attrs]
@@ -176,8 +181,7 @@
         parsed-zipper (clojure.zip/xml-zip xml)]
     (response->map parsed-zipper)))
 
-
-(defn make-saml-signer
+(defn make-saml-signer1
   [keystore-filename keystore-password key-alias]
   (Init/init)
   (ElementProxy/setDefaultPrefix Constants/SignatureSpecNS "")
@@ -286,4 +290,54 @@
                                (.getEncryptedAssertions saml-resp)))
         props (map parse-saml-assertion assertions)]
     (assoc (parse-saml-resp-status saml-resp)
-           :assertions props )))
+           :assertions props)))
+
+
+
+;;
+;;
+;;
+(defn get-idp-redirect3
+  "Return Ring response for HTTP 302 redirect."
+  [idp-url [request relay-state alg sig] relay-state-dummy]
+  (redirect
+   (str idp-url "?" (shared/uri-query-str
+                     {:SAMLRequest request :RelayState relay-state :SigAlg alg :Signature sig}))))
+
+(defn make-saml-signer3
+  [keystore-filename keystore-password key-alias]
+  (let [ks (shared/load-key-store keystore-filename keystore-password)
+        pk (.getKey ks key-alias (.toCharArray keystore-password))]
+    (fn [inp]
+      (let [s (doto (Signature/getInstance "SHA1withRSA")
+                (.initSign pk)
+                (.update (.getBytes inp)))]
+        (shared/bytes->str (b64/encode (.sign s)))))))
+
+(defn create-request-factory3
+  "Creates new requests for a particular service, format, and acs-url."
+  ([mutables idp-uri saml-format saml-service-name acs-url]
+   (create-request-factory3
+    #(str "_" (next-saml-id! (:saml-last-id mutables)))
+     (partial bump-saml-id-timeout! (:saml-id-timeouts mutables))
+     (:xml-signer mutables)
+     idp-uri saml-format saml-service-name acs-url))
+  ([next-saml-id-fn! bump-saml-id-timeout-fn! xml-signer idp-uri saml-format saml-service-name acs-url]
+   [get-idp-redirect3
+    (fn request-factory [relay-state]
+      (let [algo "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+            current-time (ctime/now)
+            new-saml-id (next-saml-id-fn!)
+            issue-instant (shared/make-issue-instant current-time)
+            _ (bump-saml-id-timeout-fn! new-saml-id current-time)
+            r (create-request issue-instant
+                              saml-format
+                              saml-service-name
+                              new-saml-id
+                              acs-url
+                              idp-uri)
+            request (shared/str->deflate->base64 r)
+            payload (str "SAMLRequest=" (ring.util.codec/form-encode request)
+                         "&RelayState=" (ring.util.codec/form-encode relay-state)
+                         "&SigAlg=" (ring.util.codec/form-encode algo))]
+        [request relay-state algo (xml-signer payload)]))]))

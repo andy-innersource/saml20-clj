@@ -60,15 +60,15 @@
   (let [decrypter (saml-sp/make-saml-decrypter keystore-file keystore-password key-alias)
         cert (saml-shared/get-certificate-b64  keystore-file keystore-password key-alias)
         mutables (assoc (saml-sp/generate-mutables)
-                        :xml-signer (saml-sp/make-saml-signer keystore-file keystore-password key-alias))
-        
-        saml-format "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+                        :xml-signer (saml-sp/make-saml-signer3 keystore-file keystore-password key-alias))
+        ;;saml-format "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        saml-format "urn:oasis:names:tc:SAML:2.0:nameid-format:transient"
         acs-uri (str base-uri "/saml")
-        saml-req-factory! (saml-sp/create-request-factory mutables
-                                                          idp-uri
-                                                          saml-format
-                                                          app-name
-                                                          acs-uri)
+        [idp-redirect saml-req-factory!] (saml-sp/create-request-factory3 mutables
+                                                                          idp-uri
+                                                                          saml-format
+                                                                          app-name
+                                                                          acs-uri)
         prune-fn! (partial saml-sp/prune-timed-out-ids!
                            (:saml-id-timeouts mutables))]
     (cc/routes
@@ -78,9 +78,7 @@
       (cc/GET "/saml" [& params]
               (let [continue-url (get params :continue "/")
                     relay-state (create-hmac-relay-state (:secret-key-spec mutables) continue-url) ]
-                (saml-sp/get-idp-redirect idp-uri
-                                          (saml-req-factory!)
-                                          relay-state)))
+                (idp-redirect idp-uri (saml-req-factory! relay-state) relay-state)))
       (cc/POST "/saml" {params :params session :session}
                (let [xml-response (saml-shared/base64->inflate->str (:SAMLResponse params))
                      relay-state (:RelayState params)
@@ -90,8 +88,7 @@
                                         (saml-sp/validate-saml-response-signature saml-resp idp-cert)
                                         true)
                      valid? (and valid-relay-state? valid-signature?)
-                     saml-info (when valid? (saml-sp/saml-resp->assertions saml-resp decrypter) )]
-              ;;(prn saml-info)
+                     saml-info (when valid? (saml-sp/saml-resp->assertions saml-resp decrypter))]
               (if valid?
                 {:status  303 ;; See other
                  :headers {"Location" continue-url}

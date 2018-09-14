@@ -12,6 +12,7 @@
                  [org.clojure/data.xml "0.0.7"]
                  [org.clojure/data.codec "0.1.0"]
                  [clj-time "0.6.0"]
+                 [base64-clj "0.1.1"]
                  [org.clojure/data.zip "0.1.1"]]
   :profiles {:dev {:source-paths ["dev" "test"]
                    :main demo-sp
