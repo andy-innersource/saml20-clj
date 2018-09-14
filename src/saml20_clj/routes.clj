@@ -70,11 +70,7 @@
                                                           app-name
                                                           acs-uri)
         prune-fn! (partial saml-sp/prune-timed-out-ids!
-                           (:saml-id-timeouts mutables))
-        state {:mutables mutables
-               :saml-req-factory! saml-req-factory!
-               :timeout-pruner-fn! prune-fn!
-               :certificate-x509 cert}]
+                           (:saml-id-timeouts mutables))]
     (cc/routes
       (cc/GET "/saml/meta" [] {:status 200
                                :headers {"Content-type" "text/xml"}
